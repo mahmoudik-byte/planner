@@ -1,0 +1,183 @@
+/* ===== База ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f1115;
+  --bg-2: #1a1d24;
+  --bg-3: #242832;
+  --text: #e8e8e8;
+  --muted: #8b8f99;
+  --accent: #4f8cff;
+  --accent-hover: #6aa1ff;
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --ok: #10b981;
+  --border: #2a2f3a;
+  --radius: 10px;
+}
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+.hidden { display: none !important; }
+
+/* ===== Auth ===== */
+.auth {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100dvh; padding: 20px;
+}
+.auth-box {
+  background: var(--bg-2);
+  padding: 30px;
+  border-radius: var(--radius);
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: 12px;
+  border: 1px solid var(--border);
+}
+.auth-box h1 { text-align: center; margin-bottom: 10px; font-size: 24px; }
+.auth-box input, .auth-box button {
+  padding: 12px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-3); color: var(--text);
+  font-size: 16px;
+}
+.auth-box button { cursor: pointer; background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+.auth-box button.ghost { background: transparent; color: var(--muted); }
+.error { color: var(--danger); font-size: 14px; min-height: 20px; text-align: center; }
+
+/* ===== Topbar ===== */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.tabs {
+  display: flex; gap: 6px; overflow-x: auto; flex: 1;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-3); color: var(--muted); cursor: pointer;
+  font-size: 14px; white-space: nowrap;
+}
+.tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+button.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+
+/* ===== Content ===== */
+.content {
+  padding: 16px 12px 100px;
+  max-width: 720px; margin: 0 auto;
+}
+.section-title {
+  font-size: 13px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin: 18px 4px 8px;
+}
+.section-title:first-child { margin-top: 0; }
+.empty {
+  text-align: center; color: var(--muted); padding: 40px 20px;
+  font-size: 14px;
+}
+
+/* Карточки задач */
+.card {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  margin-bottom: 8px; display: flex; gap: 10px; align-items: flex-start;
+  transition: opacity .15s;
+}
+.card.done { opacity: 0.5; }
+.card.done .card-text { text-decoration: line-through; }
+.card.prio-1 { border-left: 3px solid var(--warn); }
+.card.prio-2 { border-left: 3px solid var(--danger); }
+.checkbox {
+  width: 22px; height: 22px; border: 2px solid var(--border);
+  border-radius: 6px; flex-shrink: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  margin-top: 1px;
+}
+.checkbox.checked { background: var(--ok); border-color: var(--ok); }
+.checkbox.checked::after { content: "✓"; color: white; font-size: 14px; font-weight: 700; }
+.card-body { flex: 1; min-width: 0; }
+.card-text { font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+.card-meta {
+  font-size: 12px; color: var(--muted); margin-top: 4px;
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.card-meta .time { color: var(--accent); }
+.card-del {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px 8px; font-size: 18px; line-height: 1;
+}
+.card-del:hover { color: var(--danger); }
+
+/* Note card */
+.note-card .card-meta { margin-bottom: 6px; }
+
+/* ===== FAB ===== */
+.fab {
+  position: fixed; right: 20px; bottom: 24px;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--accent); color: white; border: none;
+  font-size: 28px; font-weight: 300; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, .4);
+  display: flex; align-items: center; justify-content: center;
+}
+.fab:hover { background: var(--accent-hover); }
+
+/* ===== Modal ===== */
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 100; padding: 0;
+}
+.modal-box {
+  background: var(--bg-2); width: 100%; max-width: 500px;
+  border-radius: 16px 16px 0 0; padding: 20px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px;
+  max-height: 90dvh; overflow-y: auto;
+}
+@media (min-width: 600px) {
+  .modal { align-items: center; padding: 20px; }
+  .modal-box { border-radius: var(--radius); }
+}
+.modal-box h2 { font-size: 18px; }
+.modal-box textarea, .modal-box input, .modal-box select {
+  width: 100%; padding: 10px 12px; background: var(--bg-3);
+  border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+  font-size: 15px; font-family: inherit; resize: vertical;
+}
+.modal-box .row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.modal-box label {
+  font-size: 12px; color: var(--muted);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.modal-tabs { display: flex; gap: 6px; }
+.mtab {
+  flex: 1; padding: 8px; background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 14px;
+}
+.mtab.active { background: var(--accent); color: white; border-color: var(--accent); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+.modal-actions button {
+  padding: 10px 18px; border-radius: 8px; border: none;
+  background: var(--accent); color: white; cursor: pointer; font-size: 15px; font-weight: 600;
+}
+.modal-actions button.ghost {
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+}
+
+/* ===== Скроллбар (десктоп) ===== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }

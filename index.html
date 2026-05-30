@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Ежедневник</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Экран авторизации -->
+  <section id="auth" class="auth hidden">
+    <div class="auth-box">
+      <h1>Ежедневник</h1>
+      <input id="auth-email" type="email" placeholder="email" autocomplete="email">
+      <input id="auth-password" type="password" placeholder="пароль" autocomplete="current-password">
+      <button id="btn-login">Войти</button>
+      <button id="btn-register" class="ghost">Регистрация</button>
+      <p id="auth-error" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Основной экран -->
+  <main id="app" class="hidden">
+    <header class="topbar">
+      <nav class="tabs">
+        <button class="tab" data-view="now">Сейчас</button>
+        <button class="tab active" data-view="today">Сегодня</button>
+        <button class="tab" data-view="tomorrow">Завтра</button>
+        <button class="tab" data-view="week">Неделя</button>
+        <button class="tab" data-view="notes">Мысли</button>
+        <button class="tab" data-view="goals">Жизнь</button>
+      </nav>
+      <button id="btn-logout" class="ghost small">Выйти</button>
+    </header>
+
+    <section id="view-content" class="content">
+      <!-- сюда рендерится текущая вкладка -->
+    </section>
+
+    <!-- Плавающая кнопка добавления -->
+    <button id="btn-add" class="fab" aria-label="Добавить">+</button>
+
+    <!-- Модалка добавления -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-box">
+        <h2 id="modal-title">Новая задача</h2>
+        <textarea id="m-text" placeholder="Что нужно сделать или записать..." rows="3"></textarea>
+
+        <div class="row">
+          <label>Дата
+            <input id="m-date" type="date">
+          </label>
+          <label>Время
+            <input id="m-time" type="time">
+          </label>
+        </div>
+
+        <div class="row">
+          <label>Повтор
+            <select id="m-repeat">
+              <option value="">нет</option>
+              <option value="daily">каждый день</option>
+              <option value="weekly">каждую неделю</option>
+              <option value="monthly">каждый месяц</option>
+            </select>
+          </label>
+          <label>Приоритет
+            <select id="m-priority">
+              <option value="0">обычный</option>
+              <option value="1">важно</option>
+              <option value="2">срочно</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-tabs">
+          <button class="mtab active" data-kind="task">Задача</button>
+          <button class="mtab" data-kind="note">Мысль</button>
+          <button class="mtab" data-kind="goal">Цель</button>
+        </div>
+
+        <div class="modal-actions">
+          <button id="m-cancel" class="ghost">Отмена</button>
+          <button id="m-save">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>

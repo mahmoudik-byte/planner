@@ -1,0 +1,8 @@
+.DS_Store
+.vscode/
+.claude/
+node_modules/
+*.log
+
+# Не публиковать реальные ключи (если решите сделать репо публичным)
+# config.local.js
