@@ -37,7 +37,9 @@ const state = {
   modalKind: 'task',
   lists: [],            // [{id, name, icon, color, ...}]
   currentListId: null,  // null = «Все списки»
-  editingListId: null   // когда открыта модалка редактирования списка
+  editingListId: null,  // когда открыта модалка редактирования списка
+  notifTimers: [],      // setTimeout id'шники для запланированных уведомлений
+  notifiedIds: new Set()// id задач, для которых уже показали уведомление в эту сессию
 };
 
 // ===== Утилиты =====
@@ -91,6 +93,7 @@ async function showApp() {
   await loadLists();
   updateListChip();
   render();
+  refreshReminders();
 }
 
 async function loadLists() {
@@ -343,6 +346,7 @@ async function saveItem() {
   }
   closeModal();
   render();
+  refreshReminders();
 }
 
 // ===== Render =====
@@ -549,6 +553,7 @@ function bindCards(root) {
       const table = kind === 'goal' ? 'goals' : 'tasks';
       await sb.from(table).update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', id);
       render();
+      refreshReminders();
     });
   });
   root.querySelectorAll('.card-del').forEach(btn => {
@@ -559,6 +564,7 @@ function bindCards(root) {
       const table = ({task:'tasks', note:'notes', goal:'goals'})[card.dataset.kind];
       await sb.from(table).delete().eq('id', id);
       render();
+      refreshReminders();
     });
   });
 }
@@ -566,6 +572,168 @@ function bindCards(root) {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// ===== Напоминания (баннер + локальные нотификации) =====
+const REMINDER_DISMISS_KEY = 'planner-reminder-dismissed-date';
+
+function todayKey() { return localDateStr(new Date()); }
+
+async function refreshReminders() {
+  if (!state.workspaceId) return;
+
+  // Берём активные задачи на ближайшие 48 часов
+  const now = new Date();
+  const horizon = addDays(endOfDay(), 1); // конец завтрашнего дня
+  const { data, error } = await sb.from('tasks').select('*')
+    .eq('workspace_id', state.workspaceId)
+    .eq('done', false)
+    .gte('scheduled_at', startOfDay().toISOString())
+    .lte('scheduled_at', horizon.toISOString())
+    .order('scheduled_at', { ascending: true });
+  if (error) { console.error('refreshReminders', error); return; }
+
+  const tasks = data || [];
+  renderReminderBanner(tasks);
+  scheduleNotifications(tasks);
+}
+
+function renderReminderBanner(tasks) {
+  const banner = $('#reminder-banner');
+  const main = $('#reminder-main');
+  const enableBtn = $('#reminder-enable');
+
+  const dismissed = localStorage.getItem(REMINDER_DISMISS_KEY) === todayKey();
+  if (dismissed || tasks.length === 0) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  const todayStart = startOfDay();
+  const todayEnd = endOfDay();
+  const todayTasks = tasks.filter(t => {
+    const d = new Date(t.scheduled_at);
+    return d >= todayStart && d <= todayEnd;
+  });
+  const tomorrowTasks = tasks.filter(t => {
+    const d = new Date(t.scheduled_at);
+    return d > todayEnd;
+  });
+
+  // Ближайшая будущая
+  const future = tasks.filter(t => new Date(t.scheduled_at) > new Date());
+  const next = future[0];
+
+  let line1, line2 = '';
+  if (todayTasks.length > 0) {
+    line1 = `<b>Сегодня: ${todayTasks.length} ${plural(todayTasks.length, 'задача','задачи','задач')}</b>`;
+    if (tomorrowTasks.length > 0) {
+      line1 += ` · завтра ${tomorrowTasks.length}`;
+    }
+  } else {
+    line1 = `<b>Завтра: ${tomorrowTasks.length} ${plural(tomorrowTasks.length, 'задача','задачи','задач')}</b>`;
+  }
+  if (next) {
+    line2 = `Ближайшая: «${escapeHtml(truncate(next.text, 50))}» — ${fmtDateTime(next.scheduled_at)}`;
+  }
+
+  // Срочное (приоритет 2)
+  const hasUrgent = tasks.some(t => (t.priority || 0) === 2);
+  banner.classList.toggle('urgent', hasUrgent);
+
+  main.innerHTML = `<div>${line1}</div>${line2 ? `<div class="reminder-sub">${line2}</div>` : ''}`;
+  banner.classList.remove('hidden');
+
+  // Кнопка включения уведомлений — только если ещё не спрошено
+  if ('Notification' in window && Notification.permission === 'default') {
+    enableBtn.classList.remove('hidden');
+  } else {
+    enableBtn.classList.add('hidden');
+  }
+}
+
+function plural(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
+function truncate(s, n) {
+  return s.length <= n ? s : s.slice(0, n - 1) + '…';
+}
+
+function scheduleNotifications(tasks) {
+  // Сброс предыдущих
+  state.notifTimers.forEach(id => clearTimeout(id));
+  state.notifTimers = [];
+
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const now = Date.now();
+  const MAX_DELAY = 24 * 60 * 60 * 1000; // 24ч — больше setTimeout не любит
+
+  for (const t of tasks) {
+    if (!t.scheduled_at) continue;
+    if (state.notifiedIds.has(t.id)) continue;
+    const at = new Date(t.scheduled_at).getTime();
+    const delay = at - now;
+    if (delay <= 0 || delay > MAX_DELAY) continue;
+
+    const id = setTimeout(() => fireNotification(t), delay);
+    state.notifTimers.push(id);
+  }
+}
+
+function fireNotification(task) {
+  state.notifiedIds.add(task.id);
+  const title = task.priority === 2 ? '⚠ Срочно' : task.priority === 1 ? 'Важно' : 'Напоминание';
+  const body = task.text;
+  const opts = {
+    body,
+    tag: 'task-' + task.id,
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    requireInteraction: task.priority === 2
+  };
+
+  // Предпочитаем SW — мобильный Chrome иначе не покажет
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, opts).catch(() => {
+        try { new Notification(title, opts); } catch (_) {}
+      });
+    });
+  } else {
+    try { new Notification(title, opts); } catch (_) {}
+  }
+}
+
+// Клик по баннеру — переход на «Сегодня»
+$('#reminder-main').addEventListener('click', () => {
+  state.currentView = 'today';
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === 'today'));
+  render();
+});
+
+// Скрыть баннер на сегодня
+$('#reminder-close').addEventListener('click', () => {
+  localStorage.setItem(REMINDER_DISMISS_KEY, todayKey());
+  $('#reminder-banner').classList.add('hidden');
+});
+
+// Запросить разрешение на уведомления
+$('#reminder-enable').addEventListener('click', async () => {
+  if (!('Notification' in window)) return;
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      $('#reminder-enable').classList.add('hidden');
+      refreshReminders();
+    }
+  } catch (err) {
+    console.warn('Notification permission error', err);
+  }
+});
 
 // ===== Голосовой ввод (Web Speech API) =====
 (function initVoiceInput() {

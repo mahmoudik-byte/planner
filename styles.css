@@ -82,6 +82,40 @@ body {
 button.ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
 button.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
 
+/* ===== Reminder banner ===== */
+.reminder {
+  max-width: 720px; margin: 12px auto 0;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(79,140,255,.15), rgba(79,140,255,.05));
+  border: 1px solid rgba(79,140,255,.35);
+  border-radius: var(--radius);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; color: var(--text);
+}
+.reminder.urgent {
+  background: linear-gradient(135deg, rgba(239,68,68,.15), rgba(239,68,68,.05));
+  border-color: rgba(239,68,68,.4);
+}
+.reminder-main {
+  flex: 1; cursor: pointer; line-height: 1.35;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.reminder-main b { color: var(--accent); font-weight: 600; }
+.reminder.urgent .reminder-main b { color: var(--danger); }
+.reminder-main .reminder-sub { font-size: 12px; color: var(--muted); }
+.reminder-enable {
+  background: var(--accent); color: white; border: none;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; white-space: nowrap;
+}
+.reminder-enable:hover { background: var(--accent-hover); }
+.reminder-close {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 20px; line-height: 1; cursor: pointer;
+  padding: 4px 8px; flex-shrink: 0;
+}
+.reminder-close:hover { color: var(--text); }
+
 /* ===== Content ===== */
 .content {
   padding: 16px 12px 100px;
