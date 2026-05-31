@@ -25,6 +25,14 @@
   <!-- Основной экран -->
   <main id="app" class="hidden">
     <header class="topbar">
+      <div class="topbar-row">
+        <button id="list-chip" class="list-chip" aria-label="Выбрать список">
+          <span id="list-chip-icon">📋</span>
+          <span id="list-chip-name">Все списки</span>
+          <span class="chevron">▾</span>
+        </button>
+        <button id="btn-logout" class="ghost small">Выйти</button>
+      </div>
       <nav class="tabs">
         <button class="tab" data-view="now">Сейчас</button>
         <button class="tab active" data-view="today">Сегодня</button>
@@ -32,9 +40,26 @@
         <button class="tab" data-view="week">Неделя</button>
         <button class="tab" data-view="notes">Мысли</button>
         <button class="tab" data-view="goals">Жизнь</button>
+        <button class="tab" data-view="lists">Списки</button>
       </nav>
-      <button id="btn-logout" class="ghost small">Выйти</button>
     </header>
+
+    <!-- Выпадашка выбора списка -->
+    <div id="list-picker" class="picker hidden">
+      <div class="picker-backdrop"></div>
+      <div class="picker-box">
+        <button class="picker-item" data-list-id="">
+          <span class="picker-icon">📋</span>
+          <span class="picker-name">Все списки</span>
+        </button>
+        <div id="picker-lists"><!-- сюда подставляются списки --></div>
+        <div class="picker-sep"></div>
+        <button class="picker-item picker-add" data-action="new-list">
+          <span class="picker-icon">＋</span>
+          <span class="picker-name">Новый список</span>
+        </button>
+      </div>
+    </div>
 
     <section id="view-content" class="content">
       <!-- сюда рендерится текущая вкладка -->
@@ -42,6 +67,43 @@
 
     <!-- Плавающая кнопка добавления -->
     <button id="btn-add" class="fab" aria-label="Добавить">+</button>
+
+    <!-- Модалка управления списком (создать/редактировать) -->
+    <div id="list-modal" class="modal hidden">
+      <div class="modal-box">
+        <h2 id="list-modal-title">Новый список</h2>
+        <label class="full">Название
+          <input id="lm-name" type="text" placeholder="Например: Покупки">
+        </label>
+        <div class="row">
+          <label>Иконка (эмодзи)
+            <input id="lm-icon" type="text" maxlength="4" placeholder="🛒">
+          </label>
+          <label>Цвет
+            <input id="lm-color" type="color" value="#4f8cff">
+          </label>
+        </div>
+        <div class="emoji-suggest">
+          <button type="button" class="emoji-btn">🛒</button>
+          <button type="button" class="emoji-btn">💼</button>
+          <button type="button" class="emoji-btn">🏠</button>
+          <button type="button" class="emoji-btn">📚</button>
+          <button type="button" class="emoji-btn">💪</button>
+          <button type="button" class="emoji-btn">✈️</button>
+          <button type="button" class="emoji-btn">💰</button>
+          <button type="button" class="emoji-btn">🎁</button>
+          <button type="button" class="emoji-btn">❤️</button>
+          <button type="button" class="emoji-btn">🍳</button>
+          <button type="button" class="emoji-btn">🔧</button>
+          <button type="button" class="emoji-btn">📝</button>
+        </div>
+        <div class="modal-actions">
+          <button id="lm-delete" class="ghost danger hidden">Удалить</button>
+          <button id="lm-cancel" class="ghost">Отмена</button>
+          <button id="lm-save">Сохранить</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Модалка добавления -->
     <div id="modal" class="modal hidden">
@@ -75,6 +137,12 @@
             </select>
           </label>
         </div>
+
+        <label class="full">Список
+          <select id="m-list">
+            <option value="">(без списка)</option>
+          </select>
+        </label>
 
         <div class="modal-tabs">
           <button class="mtab active" data-kind="task">Задача</button>

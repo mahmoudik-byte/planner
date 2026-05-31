@@ -50,13 +50,26 @@ body {
 /* ===== Topbar ===== */
 .topbar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; gap: 8px;
   padding: 10px 12px; background: var(--bg-2);
   border-bottom: 1px solid var(--border);
   padding-top: max(10px, env(safe-area-inset-top));
 }
+.topbar-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.list-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; font-size: 14px;
+  flex: 1; max-width: 240px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.list-chip .chevron { color: var(--muted); margin-left: auto; font-size: 11px; }
+.list-chip #list-chip-name { overflow: hidden; text-overflow: ellipsis; }
 .tabs {
-  display: flex; gap: 6px; overflow-x: auto; flex: 1;
+  display: flex; gap: 6px; overflow-x: auto;
   scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
@@ -175,6 +188,80 @@ button.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
 }
 .modal-actions button.ghost {
   background: transparent; border: 1px solid var(--border); color: var(--muted);
+}
+
+/* ===== Picker (выпадашка выбора списка) ===== */
+.picker { position: fixed; inset: 0; z-index: 50; }
+.picker-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+.picker-box {
+  position: absolute; top: 110px; left: 12px; right: 12px;
+  max-width: 320px; background: var(--bg-2);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  padding: 6px; max-height: 70vh; overflow-y: auto;
+}
+.picker-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; width: 100%;
+  background: transparent; border: none; color: var(--text);
+  cursor: pointer; border-radius: 8px; font-size: 15px; text-align: left;
+}
+.picker-item:hover { background: var(--bg-3); }
+.picker-item.active { background: var(--bg-3); }
+.picker-item .picker-icon { font-size: 20px; width: 28px; flex-shrink: 0; text-align: center; }
+.picker-item .picker-edit {
+  margin-left: auto; background: transparent; border: none;
+  color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 14px;
+}
+.picker-sep { height: 1px; background: var(--border); margin: 6px 0; }
+.picker-add { color: var(--accent); }
+
+/* List management modal */
+.modal-box label.full { display: flex; flex-direction: column; gap: 4px; }
+.emoji-suggest {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.emoji-btn {
+  width: 38px; height: 38px; font-size: 20px;
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer;
+}
+.emoji-btn:hover { background: var(--bg); }
+button.danger { color: var(--danger); border-color: var(--danger); }
+
+/* List cards view */
+.list-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.list-card {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  cursor: pointer; position: relative;
+  display: flex; flex-direction: column; gap: 8px;
+  border-left: 4px solid var(--accent);
+}
+.list-card .list-card-icon { font-size: 28px; }
+.list-card .list-card-name { font-weight: 600; font-size: 15px; }
+.list-card .list-card-count { color: var(--muted); font-size: 12px; }
+.list-card .list-card-edit {
+  position: absolute; top: 6px; right: 6px;
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px 8px; font-size: 14px;
+}
+.list-card .list-card-edit:hover { color: var(--text); }
+.list-card-add {
+  display: flex; align-items: center; justify-content: center;
+  border-style: dashed; color: var(--muted); font-size: 32px;
+  min-height: 100px;
+}
+.list-card-add:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Список бэйдж на карточке задачи */
+.card-list-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; background: var(--bg-3); border-radius: 999px;
+  font-size: 11px; color: var(--muted);
 }
 
 /* ===== Скроллбар (десктоп) ===== */

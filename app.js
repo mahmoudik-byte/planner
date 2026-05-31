@@ -34,7 +34,10 @@ const state = {
   user: null,
   workspaceId: null,
   currentView: 'today',
-  modalKind: 'task'
+  modalKind: 'task',
+  lists: [],            // [{id, name, icon, color, ...}]
+  currentListId: null,  // null = «Все списки»
+  editingListId: null   // когда открыта модалка редактирования списка
 };
 
 // ===== Утилиты =====
@@ -82,10 +85,34 @@ function showAuth() {
   $('#auth').classList.remove('hidden');
   $('#app').classList.add('hidden');
 }
-function showApp() {
+async function showApp() {
   $('#auth').classList.add('hidden');
   $('#app').classList.remove('hidden');
+  await loadLists();
+  updateListChip();
   render();
+}
+
+async function loadLists() {
+  const { data, error } = await sb
+    .from('lists')
+    .select('*')
+    .eq('workspace_id', state.workspaceId)
+    .eq('archived', false)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) { console.error('loadLists', error); state.lists = []; return; }
+  state.lists = data || [];
+}
+
+function currentList() {
+  return state.lists.find(l => l.id === state.currentListId);
+}
+
+function updateListChip() {
+  const l = currentList();
+  $('#list-chip-icon').textContent = l ? l.icon : '📋';
+  $('#list-chip-name').textContent = l ? l.name : 'Все списки';
 }
 
 async function ensureWorkspace() {
@@ -144,6 +171,98 @@ $$('.tab').forEach(t => t.addEventListener('click', () => {
   render();
 }));
 
+// ===== Picker списков =====
+$('#list-chip').addEventListener('click', openPicker);
+$('#list-picker .picker-backdrop').addEventListener('click', closePicker);
+
+function openPicker() {
+  // Перерисовать список
+  const wrap = $('#picker-lists');
+  wrap.innerHTML = state.lists.map(l => `
+    <button class="picker-item ${state.currentListId === l.id ? 'active' : ''}" data-list-id="${l.id}">
+      <span class="picker-icon">${escapeHtml(l.icon || '📋')}</span>
+      <span class="picker-name">${escapeHtml(l.name)}</span>
+      <button class="picker-edit" data-action="edit" data-id="${l.id}" title="Редактировать">⋯</button>
+    </button>
+  `).join('');
+  $('#list-picker').classList.remove('hidden');
+
+  $$('#list-picker .picker-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.dataset.action === 'edit') {
+        e.stopPropagation();
+        closePicker();
+        openListModal(e.target.dataset.id);
+        return;
+      }
+      if (btn.dataset.action === 'new-list') {
+        closePicker();
+        openListModal(null);
+        return;
+      }
+      state.currentListId = btn.dataset.listId || null;
+      updateListChip();
+      closePicker();
+      render();
+    });
+  });
+}
+function closePicker() { $('#list-picker').classList.add('hidden'); }
+
+// ===== Модалка списка (создание/редактирование) =====
+$('#lm-cancel').addEventListener('click', () => $('#list-modal').classList.add('hidden'));
+$('#lm-save').addEventListener('click', saveList);
+$('#lm-delete').addEventListener('click', deleteList);
+$$('.emoji-btn').forEach(b => b.addEventListener('click', () => {
+  $('#lm-icon').value = b.textContent;
+}));
+
+function openListModal(listId) {
+  state.editingListId = listId;
+  const l = listId ? state.lists.find(x => x.id === listId) : null;
+  $('#list-modal-title').textContent = l ? 'Редактировать список' : 'Новый список';
+  $('#lm-name').value = l ? l.name : '';
+  $('#lm-icon').value = l ? (l.icon || '') : '';
+  $('#lm-color').value = l ? (l.color || '#4f8cff') : '#4f8cff';
+  $('#lm-delete').classList.toggle('hidden', !l);
+  $('#list-modal').classList.remove('hidden');
+  setTimeout(() => $('#lm-name').focus(), 50);
+}
+
+async function saveList() {
+  const name = $('#lm-name').value.trim();
+  if (!name) { $('#lm-name').focus(); return; }
+  const payload = {
+    name,
+    icon: $('#lm-icon').value.trim() || '📋',
+    color: $('#lm-color').value || '#4f8cff'
+  };
+  if (state.editingListId) {
+    await sb.from('lists').update(payload).eq('id', state.editingListId);
+  } else {
+    payload.workspace_id = state.workspaceId;
+    payload.author_id = state.user.id;
+    payload.position = state.lists.length;
+    const { data } = await sb.from('lists').insert(payload).select().single();
+    if (data) state.currentListId = data.id;
+  }
+  $('#list-modal').classList.add('hidden');
+  await loadLists();
+  updateListChip();
+  render();
+}
+
+async function deleteList() {
+  if (!state.editingListId) return;
+  if (!confirm('Удалить список? Задачи в нём останутся (станут «без списка»).')) return;
+  await sb.from('lists').delete().eq('id', state.editingListId);
+  if (state.currentListId === state.editingListId) state.currentListId = null;
+  $('#list-modal').classList.add('hidden');
+  await loadLists();
+  updateListChip();
+  render();
+}
+
 // ===== Modal =====
 $('#btn-add').addEventListener('click', () => openModal());
 $('#m-cancel').addEventListener('click', closeModal);
@@ -156,6 +275,9 @@ $$('.mtab').forEach(b => b.addEventListener('click', () => {
 }));
 
 function openModal() {
+  // Если открыта вкладка «Списки» — открываем модалку нового списка вместо задачи
+  if (state.currentView === 'lists') { openListModal(null); return; }
+
   // Дефолт kind зависит от вкладки
   const kindForView = {
     now: 'task', today: 'task', tomorrow: 'task', week: 'task',
@@ -174,6 +296,12 @@ function openModal() {
   $('#m-text').value = '';
   $('#m-repeat').value = '';
   $('#m-priority').value = '0';
+
+  // Селектор списков
+  const sel = $('#m-list');
+  sel.innerHTML = '<option value="">(без списка)</option>' +
+    state.lists.map(l => `<option value="${l.id}">${escapeHtml(l.icon || '📋')} ${escapeHtml(l.name)}</option>`).join('');
+  sel.value = state.currentListId || '';
 
   $('#modal').classList.remove('hidden');
   setTimeout(() => $('#m-text').focus(), 50);
@@ -209,7 +337,8 @@ async function saveItem() {
       text,
       scheduled_at,
       repeat: $('#m-repeat').value || null,
-      priority: parseInt($('#m-priority').value, 10) || 0
+      priority: parseInt($('#m-priority').value, 10) || 0,
+      list_id: $('#m-list').value || null
     });
   }
   closeModal();
@@ -226,29 +355,36 @@ async function render() {
   if (state.currentView === 'week') return renderWeek(c);
   if (state.currentView === 'notes') return renderNotes(c);
   if (state.currentView === 'goals') return renderGoals(c);
+  if (state.currentView === 'lists') return renderLists(c);
 }
 function addHours(d, h) { const x = new Date(d); x.setHours(x.getHours()+h); return x; }
 
+function applyListFilter(query) {
+  // Если выбран конкретный список — фильтруем по нему
+  if (state.currentListId) return query.eq('list_id', state.currentListId);
+  return query;
+}
+
 async function fetchTasks(from, to) {
-  const { data, error } = await sb
-    .from('tasks')
-    .select('*')
+  let q = sb.from('tasks').select('*')
     .eq('workspace_id', state.workspaceId)
     .gte('scheduled_at', from.toISOString())
     .lte('scheduled_at', to.toISOString())
     .order('scheduled_at', { ascending: true });
+  q = applyListFilter(q);
+  const { data, error } = await q;
   if (error) console.error(error);
   return data || [];
 }
 
 async function fetchTasksNoDate() {
-  const { data } = await sb
-    .from('tasks')
-    .select('*')
+  let q = sb.from('tasks').select('*')
     .eq('workspace_id', state.workspaceId)
     .is('scheduled_at', null)
     .eq('done', false)
     .order('created_at', { ascending: false });
+  q = applyListFilter(q);
+  const { data } = await q;
   return data || [];
 }
 
@@ -337,6 +473,11 @@ function taskCard(t) {
   const meta = [];
   if (t.scheduled_at) meta.push(`<span class="time">${fmtTime(t.scheduled_at)}</span>`);
   if (t.repeat) meta.push(`↻ ${({daily:'ежедневно',weekly:'еженедельно',monthly:'ежемесячно'})[t.repeat]}`);
+  // Бэйдж списка показываем, только если не выбран конкретный список
+  if (!state.currentListId && t.list_id) {
+    const l = state.lists.find(x => x.id === t.list_id);
+    if (l) meta.push(`<span class="card-list-badge">${escapeHtml(l.icon||'📋')} ${escapeHtml(l.name)}</span>`);
+  }
   return `
     <div class="card ${t.done ? 'done' : ''} prio-${t.priority||0}" data-id="${t.id}" data-kind="task">
       <div class="checkbox ${t.done ? 'checked' : ''}"></div>
@@ -347,6 +488,55 @@ function taskCard(t) {
       <button class="card-del" title="Удалить">×</button>
     </div>
   `;
+}
+
+async function renderLists(c) {
+  // Сводка задач по спискам
+  const counts = {};
+  if (state.lists.length > 0) {
+    const ids = state.lists.map(l => l.id);
+    const { data } = await sb.from('tasks')
+      .select('list_id')
+      .eq('workspace_id', state.workspaceId)
+      .eq('done', false)
+      .in('list_id', ids);
+    for (const r of (data || [])) counts[r.list_id] = (counts[r.list_id]||0) + 1;
+  }
+  const cards = state.lists.map(l => `
+    <div class="list-card" data-list-id="${l.id}" style="border-left-color:${escapeHtml(l.color||'#4f8cff')}">
+      <button class="list-card-edit" data-action="edit" data-id="${l.id}">⋯</button>
+      <div class="list-card-icon">${escapeHtml(l.icon || '📋')}</div>
+      <div class="list-card-name">${escapeHtml(l.name)}</div>
+      <div class="list-card-count">${counts[l.id]||0} активных</div>
+    </div>
+  `).join('');
+  c.innerHTML = `
+    <h3 class="section-title">Списки</h3>
+    <div class="list-grid">
+      ${cards}
+      <div class="list-card list-card-add" data-action="new">＋</div>
+    </div>
+  `;
+  // Биндим
+  c.querySelectorAll('.list-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.dataset.action === 'edit') {
+        e.stopPropagation();
+        openListModal(e.target.dataset.id);
+        return;
+      }
+      if (card.dataset.action === 'new') {
+        openListModal(null);
+        return;
+      }
+      state.currentListId = card.dataset.listId;
+      updateListChip();
+      // Переключаем на «Сегодня» для удобства
+      state.currentView = 'today';
+      $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === 'today'));
+      render();
+    });
+  });
 }
 
 function bindCards(root) {
