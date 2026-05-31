@@ -169,25 +169,35 @@ button.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
   font-size: 15px; font-family: inherit; resize: vertical;
 }
 .textarea-wrap { position: relative; }
-.textarea-wrap textarea { padding-right: 44px; }
+.textarea-wrap textarea { padding-right: 56px; }
 .mic-btn {
-  position: absolute; top: 6px; right: 6px;
-  width: 34px; height: 34px; padding: 0;
+  position: absolute; top: 8px; right: 8px;
+  width: 44px; height: 44px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg-2); border: 1px solid var(--border);
-  border-radius: 50%; color: var(--muted); cursor: pointer;
-  transition: color .15s, background .15s, border-color .15s, transform .15s;
+  background: var(--accent); border: 1px solid var(--accent);
+  border-radius: 50%; color: white; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s, border-color .15s, transform .1s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
-.mic-btn:hover { color: var(--text); border-color: var(--accent); }
+.mic-btn svg { width: 22px; height: 22px; }
+.mic-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.mic-btn:active { transform: scale(0.92); }
 .mic-btn.recording {
-  color: white; background: var(--danger); border-color: var(--danger);
+  background: var(--danger); border-color: var(--danger);
   animation: mic-pulse 1.2s ease-in-out infinite;
 }
 @keyframes mic-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
 }
-.mic-btn[disabled] { opacity: .35; cursor: not-allowed; }
+.mic-btn[disabled] { opacity: .35; cursor: not-allowed; background: var(--bg-3); border-color: var(--border); color: var(--muted); }
+.mic-hint {
+  position: absolute; bottom: -22px; right: 0;
+  font-size: 12px; color: var(--muted); pointer-events: none;
+  opacity: 0; transition: opacity .2s;
+}
+.mic-hint.visible { opacity: 1; }
 .modal-box .row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
 }

@@ -571,69 +571,113 @@ function escapeHtml(s) {
 (function initVoiceInput() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btn = $('#m-mic');
-  if (!btn) return;
+  const ta = $('#m-text');
+  const hint = $('#m-mic-hint');
+  if (!btn || !ta) return;
+
+  function setHint(msg, autoHide = false) {
+    if (!hint) return;
+    hint.textContent = msg || '';
+    hint.classList.toggle('visible', !!msg);
+    if (autoHide) {
+      clearTimeout(setHint._t);
+      setHint._t = setTimeout(() => hint.classList.remove('visible'), 2500);
+    }
+  }
+
   if (!SR) {
     btn.disabled = true;
-    btn.title = 'Голосовой ввод не поддерживается в этом браузере';
+    btn.title = 'Голос не поддерживается в этом браузере';
     return;
   }
 
-  const ta = $('#m-text');
   let rec = null;
   let listening = false;
   let baseText = '';
+  let lastFinal = '';
+
+  function cleanup() {
+    listening = false;
+    btn.classList.remove('recording');
+    btn.title = 'Надиктовать голосом';
+    rec = null;
+  }
 
   function stop() {
-    if (rec && listening) {
-      try { rec.stop(); } catch (_) {}
-    }
+    if (!rec) return;
+    try { rec.stop(); } catch (_) {}
+    try { rec.abort(); } catch (_) {}
   }
+
+  // mousedown/touchstart, чтобы не воровать фокус у textarea
+  btn.addEventListener('mousedown', e => e.preventDefault());
 
   btn.addEventListener('click', () => {
     if (listening) { stop(); return; }
 
-    rec = new SR();
-    rec.lang = 'ru-RU';
-    rec.interimResults = true;
-    rec.continuous = true;
+    let r;
+    try { r = new SR(); }
+    catch (err) {
+      setHint('Не удалось запустить распознавание', true);
+      console.error(err);
+      return;
+    }
+    r.lang = 'ru-RU';
+    r.interimResults = true;
+    r.continuous = true;
+    r.maxAlternatives = 1;
 
     baseText = ta.value;
-    if (baseText && !baseText.endsWith(' ') && !baseText.endsWith('\n')) baseText += ' ';
+    if (baseText && !/\s$/.test(baseText)) baseText += ' ';
+    lastFinal = '';
 
-    rec.onstart = () => {
+    r.onstart = () => {
       listening = true;
       btn.classList.add('recording');
-      btn.title = 'Остановить запись';
+      btn.title = 'Остановить';
+      setHint('Говорите…');
     };
-    rec.onresult = (e) => {
+    r.onresult = (e) => {
       let finalTxt = '';
       let interimTxt = '';
       for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalTxt += r[0].transcript;
-        else interimTxt += r[0].transcript;
+        const res = e.results[i];
+        if (res.isFinal) finalTxt += res[0].transcript;
+        else interimTxt += res[0].transcript;
       }
+      lastFinal = finalTxt;
       ta.value = baseText + finalTxt + interimTxt;
     };
-    rec.onerror = (e) => {
+    r.onerror = (e) => {
       console.warn('speech error', e.error);
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        alert('Доступ к микрофону запрещён. Разрешите его в настройках браузера.');
-      }
+      const msg = ({
+        'not-allowed': 'Нет доступа к микрофону. Разрешите в настройках браузера.',
+        'service-not-allowed': 'Нет доступа к микрофону.',
+        'no-speech': 'Не слышно. Попробуйте ещё раз.',
+        'audio-capture': 'Микрофон не найден.',
+        'network': 'Нет сети для распознавания.',
+        'aborted': ''
+      })[e.error] || ('Ошибка: ' + e.error);
+      if (msg) setHint(msg, true);
+      cleanup();
     };
-    rec.onend = () => {
-      listening = false;
-      btn.classList.remove('recording');
-      btn.title = 'Надиктовать голосом';
-      baseText = ta.value;
-      ta.focus();
+    r.onend = () => {
+      // Зафиксировать финальный текст; обрезать «висящий» interim
+      if (lastFinal) ta.value = baseText + lastFinal;
+      cleanup();
+      setHint('', false);
     };
 
-    try { rec.start(); }
-    catch (err) { console.error('rec.start', err); }
+    rec = r;
+    try { r.start(); }
+    catch (err) {
+      console.error('rec.start', err);
+      setHint('Не удалось начать запись', true);
+      cleanup();
+    }
   });
 
-  // При закрытии модалки — останавливаем запись
+  // Останавливаем запись при закрытии модалки/сохранении
   $('#m-cancel').addEventListener('click', stop);
   $('#m-save').addEventListener('click', stop);
 })();
