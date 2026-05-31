@@ -567,5 +567,76 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ===== Голосовой ввод (Web Speech API) =====
+(function initVoiceInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $('#m-mic');
+  if (!btn) return;
+  if (!SR) {
+    btn.disabled = true;
+    btn.title = 'Голосовой ввод не поддерживается в этом браузере';
+    return;
+  }
+
+  const ta = $('#m-text');
+  let rec = null;
+  let listening = false;
+  let baseText = '';
+
+  function stop() {
+    if (rec && listening) {
+      try { rec.stop(); } catch (_) {}
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    if (listening) { stop(); return; }
+
+    rec = new SR();
+    rec.lang = 'ru-RU';
+    rec.interimResults = true;
+    rec.continuous = true;
+
+    baseText = ta.value;
+    if (baseText && !baseText.endsWith(' ') && !baseText.endsWith('\n')) baseText += ' ';
+
+    rec.onstart = () => {
+      listening = true;
+      btn.classList.add('recording');
+      btn.title = 'Остановить запись';
+    };
+    rec.onresult = (e) => {
+      let finalTxt = '';
+      let interimTxt = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalTxt += r[0].transcript;
+        else interimTxt += r[0].transcript;
+      }
+      ta.value = baseText + finalTxt + interimTxt;
+    };
+    rec.onerror = (e) => {
+      console.warn('speech error', e.error);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        alert('Доступ к микрофону запрещён. Разрешите его в настройках браузера.');
+      }
+    };
+    rec.onend = () => {
+      listening = false;
+      btn.classList.remove('recording');
+      btn.title = 'Надиктовать голосом';
+      baseText = ta.value;
+      ta.focus();
+    };
+
+    try { rec.start(); }
+    catch (err) { console.error('rec.start', err); }
+  });
+
+  // При закрытии модалки — останавливаем запись
+  $('#m-cancel').addEventListener('click', stop);
+  $('#m-save').addEventListener('click', stop);
+})();
+
 // ===== Старт =====
 checkAuth();
