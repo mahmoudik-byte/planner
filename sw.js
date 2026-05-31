@@ -1,5 +1,5 @@
-// Service Worker — простой оффлайн-кэш оболочки
-const CACHE = 'planner-v1';
+// Service Worker — оболочка офлайн, обновления подхватываются сразу
+const CACHE = 'planner-v2';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -16,15 +16,18 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Не кэшируем запросы к Supabase
   if (url.hostname.includes('supabase.co')) return;
+  if (e.request.method !== 'GET') return;
+
+  // Network-first для оболочки: всегда стараемся достать свежую версию,
+  // кэш — только как резерв на офлайн.
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      if (res.ok && e.request.method === 'GET') {
+    fetch(e.request).then(res => {
+      if (res.ok) {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
       }
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
   );
 });
