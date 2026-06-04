@@ -1,6 +1,6 @@
 // Service Worker — оболочка офлайн, обновления подхватываются сразу
-const CACHE = 'planner-v3';
-const SHELL = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.json'];
+const CACHE = 'planner-v4';
+const SHELL = ['./', './index.html', './styles.css', './app.js', './config.js', './manifest.json', './voice.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));

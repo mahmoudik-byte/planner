@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Голосовой опрос</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1115; --bg-2: #1a1d24; --bg-3: #242832;
+    --text: #e8e8e8; --muted: #8b8f99;
+    --accent: #4f8cff; --accent-hover: #6aa1ff;
+    --danger: #ef4444; --ok: #10b981; --warn: #f59e0b;
+    --border: #2a2f3a; --radius: 12px;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; flex-direction: column; min-height: 100dvh;
+  }
+  .hidden { display: none !important; }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+    display: flex; align-items: center; gap: 10px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; flex: 1; }
+  .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .icon-btn {
+    background: var(--bg-3); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; width: 40px; height: 40px; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:active { background: var(--border); }
+
+  main {
+    flex: 1; padding: 18px 16px; padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 18px; max-width: 640px;
+    width: 100%; margin: 0 auto;
+  }
+
+  /* Микрофон */
+  .mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 0; }
+  .mic {
+    width: 130px; height: 130px; border-radius: 50%;
+    background: var(--accent); border: none; color: #fff; font-size: 52px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 24px rgba(79,140,255,.35); transition: transform .1s, background .2s;
+  }
+  .mic:active { transform: scale(.96); }
+  .mic.listening { background: var(--danger); box-shadow: 0 0 0 0 rgba(239,68,68,.6); animation: pulse 1.4s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
+    70% { box-shadow: 0 0 0 26px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .status { color: var(--muted); font-size: 14px; min-height: 20px; text-align: center; }
+
+  /* Ручной ввод */
+  .manual { display: flex; gap: 8px; }
+  .manual input {
+    flex: 1; padding: 14px; border-radius: var(--radius); font-size: 18px;
+    border: 1px solid var(--border); background: var(--bg-3); color: var(--text);
+    text-align: center;
+  }
+  .manual button {
+    padding: 0 20px; border-radius: var(--radius); border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
+  }
+  .manual button:active { background: var(--accent-hover); }
+
+  /* Карточка результата */
+  .card {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card .num {
+    align-self: flex-start; background: var(--accent); color: #fff; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px; font-size: 14px;
+  }
+  .card .q { font-size: 18px; line-height: 1.4; }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .card .a { font-size: 18px; line-height: 1.4; color: var(--ok); font-weight: 600; }
+  .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card-actions button {
+    padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg-3); color: var(--text); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card-actions button:active { background: var(--border); }
+
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; line-height: 1.5; }
+  .empty button {
+    margin-top: 14px; padding: 12px 20px; border-radius: var(--radius);
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+  }
+
+  /* Настройки (свайп-панель) */
+  .settings { display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .row label { font-size: 15px; }
+  .row input[type=range] { flex: 1; max-width: 200px; accent-color: var(--accent); }
+  .switch { position: relative; width: 46px; height: 26px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: 26px; cursor: pointer; transition: .2s;
+  }
+  .slider::before {
+    content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px;
+    background: var(--muted); border-radius: 50%; transition: .2s;
+  }
+  .switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(20px); background: #fff; }
+
+  /* Модалка импорта */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 20;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .modal {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px 16px 0 0;
+    width: 100%; max-width: 640px; max-height: 92dvh; overflow-y: auto;
+    padding: 18px 16px; padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal h2 { font-size: 18px; }
+  .modal p.hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .modal textarea {
+    width: 100%; min-height: 160px; padding: 12px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--bg-3); color: var(--text);
+    font-size: 14px; font-family: ui-monospace, Menlo, Consolas, monospace; resize: vertical;
+  }
+  .modal .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .modal .btns button {
+    flex: 1; min-width: 120px; padding: 13px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--bg-3); color: var(--text);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .modal .btns button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .modal .btns button.danger { color: var(--danger); }
+  .modal .parse-info { font-size: 14px; min-height: 20px; }
+  .file-label {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 14px;
+    border: 1px dashed var(--border); border-radius: var(--radius); cursor: pointer;
+    color: var(--muted); font-size: 14px; justify-content: center;
+  }
+  .file-label input { display: none; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  pre.example {
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; font-size: 12px; overflow-x: auto; margin-top: 8px; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Голосовой опрос</h1>
+  <span class="count" id="count">0 вопросов</span>
+  <button class="icon-btn" id="btn-import" title="Список вопросов">📋</button>
+</header>
+
+<main>
+  <!-- Если вопросов нет -->
+  <div id="empty" class="empty hidden">
+    Список вопросов пуст.<br>Загрузите свои 4000 вопросов и ответов.
+    <br><button id="btn-empty-import">Загрузить вопросы</button>
+  </div>
+
+  <!-- Рабочий экран -->
+  <div id="work" class="hidden" style="display:flex;flex-direction:column;gap:18px;">
+    <div class="mic-wrap">
+      <button class="mic" id="mic">🎤</button>
+      <div class="status" id="status">Нажмите и назовите номер</div>
+    </div>
+
+    <div class="manual">
+      <input id="num-input" type="number" inputmode="numeric" placeholder="Номер" min="1">
+      <button id="btn-find">Найти</button>
+    </div>
+
+    <div id="result"></div>
+
+    <details class="settings-details">
+      <summary style="cursor:pointer;color:var(--muted);font-size:14px;">Настройки голоса</summary>
+      <div class="settings" style="margin-top:12px;">
+        <div class="row">
+          <label>Озвучивать вопрос</label>
+          <span class="switch"><input type="checkbox" id="set-speak-q" checked><span class="slider"></span></span>
+        </div>
+        <div class="row">
+          <label>Слушать без остановки</label>
+          <span class="switch"><input type="checkbox" id="set-continuous"><span class="slider"></span></span>
+        </div>
+        <div class="row">
+          <label>Скорость речи</label>
+          <input type="range" id="set-rate" min="0.6" max="1.4" step="0.1" value="1">
+        </div>
+        <div class="row">
+          <label>Голос</label>
+          <select id="set-voice" style="flex:1;max-width:240px;padding:8px;border-radius:8px;background:var(--bg-3);color:var(--text);border:1px solid var(--border);"></select>
+        </div>
+      </div>
+    </details>
+  </div>
+</main>
+
+<!-- Модалка импорта -->
+<div id="import-overlay" class="overlay hidden">
+  <div class="modal">
+    <h2>Список вопросов</h2>
+    <p class="hint">
+      Вставьте список ниже или выберите файл. Поддерживаются: таблица из Excel/Google
+      (скопировать и вставить), CSV, текст и JSON. В каждой строке: <b>номер</b>, <b>вопрос</b>,
+      <b>ответ</b> — через табуляцию, точку с запятой или вертикальную черту.
+    </p>
+
+    <label class="file-label">
+      📎 Выбрать файл (.csv / .txt / .json)
+      <input type="file" id="file-input" accept=".csv,.txt,.json,text/plain,application/json">
+    </label>
+
+    <textarea id="import-text" placeholder="1 | Сколько будет 2+2? | 4
+2 | Столица Франции? | Париж
+3; Какого цвета небо?; Голубого"></textarea>
+
+    <div class="parse-info" id="parse-info"></div>
+
+    <div class="btns">
+      <button class="primary" id="btn-replace">Заменить список</button>
+      <button id="btn-append">Добавить к списку</button>
+    </div>
+    <div class="btns">
+      <button id="btn-export">Скачать резервную копию</button>
+      <button class="danger" id="btn-clear">Очистить всё</button>
+    </div>
+
+    <details>
+      <summary>Какие форматы понимает программа</summary>
+      <pre class="example">Таблица из Excel (вставить — колонки разделятся табом):
+1    Сколько будет 2+2?    4
+2    Столица Франции?      Париж
+
+Через разделитель | или ;
+1 | Сколько будет 2+2? | 4
+2; Столица Франции?; Париж
+
+JSON:
+[
+  { "n": 1, "q": "Сколько будет 2+2?", "a": "4" },
+  { "n": 2, "q": "Столица Франции?", "a": "Париж" }
+]</pre>
+    </details>
+
+    <div class="btns">
+      <button id="btn-close-import">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ===== Хранилище ===== */
+const LS_Q = "voiceqa_questions";
+const LS_SET = "voiceqa_settings";
+
+let questions = [];      // [{n, q, a}]
+let byNum = new Map();   // номер -> {n,q,a}
+let settings = { speakQ: true, continuous: false, rate: 1, voice: "" };
+
+function loadStore() {
+  try { questions = JSON.parse(localStorage.getItem(LS_Q) || "[]"); }
+  catch { questions = []; }
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(LS_SET) || "{}")); }
+  catch {}
+  reindex();
+}
+function saveQuestions() {
+  localStorage.setItem(LS_Q, JSON.stringify(questions));
+  reindex();
+}
+function saveSettings() { localStorage.setItem(LS_SET, JSON.stringify(settings)); }
+function reindex() {
+  byNum = new Map();
+  for (const item of questions) byNum.set(Number(item.n), item);
+}
+
+/* ===== Разбор вставленного списка ===== */
+function parseInput(raw) {
+  raw = (raw || "").trim();
+  if (!raw) return [];
+
+  // JSON
+  if (raw[0] === "[" || raw[0] === "{") {
+    try {
+      let data = JSON.parse(raw);
+      if (!Array.isArray(data)) data = [data];
+      return data.map((o, i) => ({
+        n: Number(o.n ?? o.num ?? o.number ?? o.id ?? (i + 1)),
+        q: String(o.q ?? o.question ?? o.вопрос ?? "").trim(),
+        a: String(o.a ?? o.answer ?? o.ответ ?? "").trim()
+      })).filter(x => x.n && (x.q || x.a));
+    } catch { /* падаем в строковый разбор */ }
+  }
+
+  const out = [];
+  const lines = raw.split(/\r?\n/);
+  let auto = 0;
+  for (let line of lines) {
+    if (!line.trim()) continue;
+    // выбираем разделитель: таб > | > ;  (запятую не берём — она часто внутри текста)
+    let parts;
+    if (line.includes("\t")) parts = line.split("\t");
+    else if (line.includes("|")) parts = line.split("|");
+    else if (line.includes(";")) parts = line.split(";");
+    else parts = [line]; // одна колонка — считаем ответом, номер по порядку
+    parts = parts.map(p => p.trim());
+
+    let n, q, a;
+    if (parts.length >= 3) {
+      n = parseInt(parts[0], 10);
+      q = parts[1];
+      a = parts.slice(2).join(" ").trim();
+    } else if (parts.length === 2) {
+      // либо "номер | текст", либо "вопрос | ответ"
+      if (/^\d+$/.test(parts[0])) { n = parseInt(parts[0], 10); q = ""; a = parts[1]; }
+      else { q = parts[0]; a = parts[1]; }
+    } else {
+      a = parts[0];
+    }
+    if (!Number.isFinite(n)) n = ++auto;
+    else auto = n;
+    out.push({ n, q: q || "", a: a || "" });
+  }
+  return out.filter(x => x.n && (x.q || x.a));
+}
+
+/* ===== Числительные на русском -> число ===== */
+const RU_NUM = {
+  ноль:0, один:1, одна:1, одно:1, два:2, две:2, три:3, четыре:4, пять:5,
+  шесть:6, семь:7, восемь:8, девять:9, десять:10, одиннадцать:11, двенадцать:12,
+  тринадцать:13, четырнадцать:14, пятнадцать:15, шестнадцать:16, семнадцать:17,
+  восемнадцать:18, девятнадцать:19, двадцать:20, тридцать:30, сорок:40,
+  пятьдесят:50, шестьдесят:60, семьдесят:70, восемьдесят:80, девяносто:90,
+  сто:100, двести:200, триста:300, четыреста:400, пятьсот:500, шестьсот:600,
+  семьсот:700, восемьсот:800, девятьсот:900,
+  тысяча:1000, тысячи:1000, тысяч:1000
+};
+function parseSpokenNumber(text) {
+  if (!text) return null;
+  text = text.toLowerCase().replace(/ё/g, "е");
+  // если есть цифры — берём их
+  const digits = text.match(/\d+/);
+  if (digits) return parseInt(digits[0], 10);
+  // иначе разбираем слова
+  const words = text.split(/[^а-я]+/).filter(Boolean);
+  let total = 0, current = 0, found = false;
+  for (const w of words) {
+    if (!(w in RU_NUM)) continue;
+    found = true;
+    const v = RU_NUM[w];
+    if (v === 1000) { current = (current === 0 ? 1 : current) * 1000; total += current; current = 0; }
+    else current += v;
+  }
+  total += current;
+  return found ? total : null;
+}
+
+/* ===== Озвучивание ===== */
+let voices = [];
+function loadVoices() {
+  voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  const ru = voices.filter(v => /ru/i.test(v.lang));
+  const sel = document.getElementById("set-voice");
+  sel.innerHTML = "";
+  const list = ru.length ? ru : voices;
+  for (const v of list) {
+    const o = document.createElement("option");
+    o.value = v.name; o.textContent = v.name + " (" + v.lang + ")";
+    sel.appendChild(o);
+  }
+  if (settings.voice) sel.value = settings.voice;
+}
+function pickVoice() {
+  if (settings.voice) {
+    const v = voices.find(v => v.name === settings.voice);
+    if (v) return v;
+  }
+  return voices.find(v => /ru/i.test(v.lang)) || null;
+}
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ru-RU";
+  u.rate = settings.rate || 1;
+  const v = pickVoice();
+  if (v) u.voice = v;
+  window.speechSynthesis.speak(u);
+}
+
+/* ===== Показ результата ===== */
+function showAnswer(num) {
+  const item = byNum.get(Number(num));
+  const box = document.getElementById("result");
+  if (!item) {
+    box.innerHTML = `<div class="card"><div class="q">Вопрос №${num} не найден</div></div>`;
+    speak("Вопрос номер " + num + " не найден");
+    setStatus("Не найдено");
+    return;
+  }
+  box.innerHTML = `
+    <div class="card">
+      <span class="num">№ ${item.n}</span>
+      ${item.q ? `<div class="q">${escapeHtml(item.q)}</div>` : ""}
+      <div class="label">Правильный ответ</div>
+      <div class="a">${escapeHtml(item.a) || "—"}</div>
+      <div class="card-actions">
+        <button id="btn-repeat">🔊 Повторить</button>
+      </div>
+    </div>`;
+  document.getElementById("btn-repeat").onclick = () => speakItem(item);
+  speakItem(item);
+  setStatus("Вопрос № " + item.n);
+}
+function speakItem(item) {
+  let text = "";
+  if (settings.speakQ && item.q) text += item.q + ". ";
+  text += "Правильный ответ: " + (item.a || "не указан");
+  speak(text);
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+}
+
+/* ===== Распознавание речи ===== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, listening = false, wantListen = false;
+function setStatus(t) { document.getElementById("status").textContent = t; }
+
+function setupRecog() {
+  if (!SR) return;
+  recog = new SR();
+  recog.lang = "ru-RU";
+  recog.interimResults = false;
+  recog.maxAlternatives = 3;
+  recog.onstart = () => { listening = true; document.getElementById("mic").classList.add("listening"); setStatus("Слушаю…"); };
+  recog.onend = () => {
+    listening = false;
+    document.getElementById("mic").classList.remove("listening");
+    if (wantListen && settings.continuous) { try { recog.start(); } catch {} }
+    else { wantListen = false; }
+  };
+  recog.onerror = (e) => {
+    setStatus(e.error === "not-allowed" ? "Нет доступа к микрофону" : "Ошибка распознавания");
+    wantListen = false;
+  };
+  recog.onresult = (e) => {
+    let num = null, heard = "";
+    for (const res of e.results) {
+      for (const alt of res) {
+        heard = heard || alt.transcript;
+        const n = parseSpokenNumber(alt.transcript);
+        if (n != null) { num = n; break; }
+      }
+      if (num != null) break;
+    }
+    if (num != null) { showAnswer(num); document.getElementById("num-input").value = num; }
+    else setStatus("Не расслышал номер" + (heard ? ": «" + heard + "»" : ""));
+  };
+}
+
+function toggleListen() {
+  if (!SR) {
+    setStatus("Распознавание речи недоступно — введите номер вручную");
+    document.getElementById("num-input").focus();
+    return;
+  }
+  if (listening) { wantListen = false; recog.stop(); return; }
+  wantListen = true;
+  try { recog.start(); } catch { /* уже идёт */ }
+}
+
+/* ===== Импорт UI ===== */
+function openImport() { document.getElementById("import-overlay").classList.remove("hidden"); }
+function closeImport() { document.getElementById("import-overlay").classList.add("hidden"); document.getElementById("parse-info").textContent = ""; }
+
+function applyImport(mode) {
+  const raw = document.getElementById("import-text").value;
+  const parsed = parseInput(raw);
+  const info = document.getElementById("parse-info");
+  if (!parsed.length) {
+    info.style.color = "var(--danger)";
+    info.textContent = "Не удалось распознать ни одной строки. Проверьте формат.";
+    return;
+  }
+  if (mode === "replace") questions = parsed;
+  else {
+    // добавляем, перезаписывая совпадающие номера
+    for (const item of parsed) {
+      const i = questions.findIndex(x => Number(x.n) === Number(item.n));
+      if (i >= 0) questions[i] = item; else questions.push(item);
+    }
+  }
+  questions.sort((a, b) => a.n - b.n);
+  saveQuestions();
+  info.style.color = "var(--ok)";
+  info.textContent = "Готово. Загружено строк: " + parsed.length + ". Всего в списке: " + questions.length + ".";
+  document.getElementById("import-text").value = "";
+  refreshUI();
+}
+
+function refreshUI() {
+  document.getElementById("count").textContent = questions.length + " " + plural(questions.length, ["вопрос","вопроса","вопросов"]);
+  const has = questions.length > 0;
+  document.getElementById("empty").classList.toggle("hidden", has);
+  document.getElementById("work").classList.toggle("hidden", !has);
+}
+function plural(n, forms) {
+  n = Math.abs(n) % 100; const n1 = n % 10;
+  if (n > 10 && n < 20) return forms[2];
+  if (n1 > 1 && n1 < 5) return forms[1];
+  if (n1 === 1) return forms[0];
+  return forms[2];
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(questions, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "voiceqa-backup.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ===== Инициализация ===== */
+function init() {
+  loadStore();
+  setupRecog();
+
+  // настройки в UI
+  document.getElementById("set-speak-q").checked = settings.speakQ;
+  document.getElementById("set-continuous").checked = settings.continuous;
+  document.getElementById("set-rate").value = settings.rate;
+
+  document.getElementById("set-speak-q").onchange = e => { settings.speakQ = e.target.checked; saveSettings(); };
+  document.getElementById("set-continuous").onchange = e => { settings.continuous = e.target.checked; saveSettings(); };
+  document.getElementById("set-rate").onchange = e => { settings.rate = parseFloat(e.target.value); saveSettings(); };
+  document.getElementById("set-voice").onchange = e => { settings.voice = e.target.value; saveSettings(); };
+
+  document.getElementById("mic").onclick = toggleListen;
+  document.getElementById("btn-find").onclick = () => {
+    const v = document.getElementById("num-input").value.trim();
+    if (v) showAnswer(parseInt(v, 10));
+  };
+  document.getElementById("num-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("btn-find").click();
+  });
+
+  document.getElementById("btn-import").onclick = openImport;
+  document.getElementById("btn-empty-import").onclick = openImport;
+  document.getElementById("btn-close-import").onclick = closeImport;
+  document.getElementById("import-overlay").addEventListener("click", e => {
+    if (e.target.id === "import-overlay") closeImport();
+  });
+  document.getElementById("btn-replace").onclick = () => applyImport("replace");
+  document.getElementById("btn-append").onclick = () => applyImport("append");
+  document.getElementById("btn-export").onclick = exportBackup;
+  document.getElementById("btn-clear").onclick = () => {
+    if (confirm("Удалить все вопросы из этого устройства?")) {
+      questions = []; saveQuestions(); refreshUI();
+      document.getElementById("parse-info").textContent = "Список очищен.";
+    }
+  };
+  document.getElementById("file-input").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { document.getElementById("import-text").value = r.result; };
+    r.readAsText(f);
+  };
+
+  if (window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  refreshUI();
+  if (!questions.length) openImport();
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
